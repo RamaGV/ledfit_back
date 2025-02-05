@@ -1,0 +1,291 @@
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/server.ts ---
+// src/server.ts
+
+import entenamientosRoutes from "./routes/entrenamientosRoutes";
+import actuadoresRoutes from "./routes/ejerciciosRoutes";
+
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import connectDB from "./config/db";
+
+dotenv.config();
+connectDB();
+
+const app = express();
+
+app.use(express.json());
+app.use(cors());
+
+// Rutas
+app.use("/api/entrenamientos", entenamientosRoutes);
+app.use("/api/ejercicios", actuadoresRoutes);
+
+// Middleware 404
+app.use((req, res) => {
+  res.status(404).json({ message: "Ruta no encontrada" });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
+});
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/types/express.d.ts ---
+// src/types/express.d.ts
+import { IUser } from "../models/User";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: IUser;
+    }
+  }
+}
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/config/db.ts ---
+// src/config/db.ts
+
+import mongoose from "mongoose";
+
+const connectDB = async (): Promise<void> => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI as string);
+    console.log("MongoDB conectado");
+  } catch (error) {
+    console.error("Error al conectar a MongoDB:", error);
+    process.exit(1);
+  }
+};
+
+export default connectDB;
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/routes/ejerciciosRoutes.ts ---
+// src/routes/ejerciciosRoutes.ts
+
+import { getAllEjercicios, getEjercicioById } from "../controllers/ejercicioController";
+import express from "express";
+
+const router = express.Router();
+
+// GET /api/ejercicios -> Lista todos los ejercicios
+router.get("/", getAllEjercicios);
+
+// GET /api/ejercicios/:id -> Obtiene un ejercicio por ID
+router.get("/:id", (req, res) => {
+  getEjercicioById(req, res);
+});
+
+export default router;
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/routes/entrenamientosRoutes.ts ---
+// src/routes/medidasActuadoresRoutes.ts
+
+import express from "express";
+import { getAllEntrenamientos ,getEntrenamientoById } from "../controllers/entrenamientosController";
+
+const router = express.Router();
+
+// GET /api/entrenamientos -> Lista todos los entrenamientos
+router.get("/", getAllEntrenamientos);
+
+// GET /api/entrenamientos/:id -> Obtiene un entrenamiento por ID
+router.get("/:id", (req, res) => {
+    getEntrenamientoById(req, res);
+});
+
+export default router;
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/controllers/entrenamientosController.ts ---
+// src/controllers/entrenamientosController.ts
+
+import { Request, Response } from "express";
+import Entrenamiento from "../models/Entrenamiento";
+
+// GET: Listar todos los entrenamientos
+export const getAllEntrenamientos = async (req: Request, res: Response) => {
+  try {
+    const entrenamientos = await Entrenamiento.find({})
+    .populate("rondas._id")
+    
+    res.json(entrenamientos);
+  } catch (error) {
+    console.error("Error getAllEntrenamientos:", error);
+    res.status(500).json({ message: "Error al obtener entrenamientos", error });
+  }
+};
+
+// GET: Obtener entrenamientos por ID
+export const getEntrenamientoById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const cultivo = await Entrenamiento.findById(id)
+    .populate("rondas._id")
+
+    if (!cultivo) {
+      return res.status(404).json({ message: "Cultivo no encontrado" });
+    }
+
+    return res.json(cultivo);
+  } catch (error) {
+    return res.status(500).json({ message: "Error al obtener el cultivo", error });
+  }
+};
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/controllers/ejercicioController.ts ---
+// src/controllers/ejercicioController.ts
+
+import { Request, Response } from "express";
+import Ejercicio from "../models/Ejercicio";
+
+// GET: Listar todos los controles
+export const getAllEjercicios = async (req: Request, res: Response) => {
+  try {
+    const ejercicios = await Ejercicio.find({});
+
+    res.json(ejercicios);
+  } catch (error) {
+    res.status(500).json({ message: "Error al obtener los ejercicios", error });
+  }
+};
+
+// GET: Obtener ejercicio por ID
+export const getEjercicioById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const ejercicio = await Ejercicio.findById(id);
+    if (!ejercicio) {
+      return res.status(404).json({ message: "Ejercicio no encontrado" });
+    }
+
+    res.json(ejercicio);
+  } catch (error) {
+    res.status(500).json({ message: "Error al obtener el ejercicio", error });
+  }
+};
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/models/Entrenamiento.ts ---
+// src/models/Entrenamiento.ts
+
+import mongoose, { Model } from "mongoose";
+
+interface IRondas {
+  _id: mongoose.Types.ObjectId;
+}
+
+export interface IEntrenamiento {
+  _id: mongoose.Types.ObjectId;
+  nombre: string;
+  rondas: IRondas[];
+  imagen: string;
+  tiempoTotal: number;
+  grupo: string;
+  descripcion: string; 
+}
+
+const rondaSchema = new mongoose.Schema<IRondas>(
+  {
+    _id: { type: mongoose.Schema.Types.ObjectId, ref: "Ejercicio" },
+  },
+  { _id: false }
+);
+
+const entrenamientoSchema = new mongoose.Schema<IEntrenamiento>(
+  {
+    _id: { type: mongoose.Schema.Types.ObjectId, required: true },
+    nombre: { type: String, required: true },
+    rondas: [rondaSchema],
+    imagen: { type: String, required: true },
+    tiempoTotal: { type: Number, required: true },
+    grupo: { type: String, required: true },
+    descripcion: { type: String, required: true },
+  },
+  { timestamps: true }
+);
+
+const Entrenamiento: Model<IEntrenamiento> = mongoose.model<IEntrenamiento>("Entrenamiento", entrenamientoSchema, "entrenamientos");
+export default Entrenamiento;
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/models/Ejercicio.ts ---
+// src/models/Ejercicio.ts
+
+import mongoose, { Schema, Document, Model } from "mongoose";
+
+export interface IEjercicio extends Document {
+  _id: mongoose.Types.ObjectId;
+  nombre: string;
+  duracion: number;
+  imagen: string;
+  calorias: number;
+  descripcion: string;
+  grupo: string;
+}
+
+const ejercicioSchema: Schema<IEjercicio> = new mongoose.Schema(
+  {
+    _id: { type: mongoose.Schema.Types.ObjectId, required: true },
+    descripcion: { type: String, required: true },
+    duracion: { type: Number, required: true },
+    calorias: { type: Number, required: true },
+    imagen: { type: String, required: true },
+    nombre: { type: String, required: true },
+    grupo: { type: String, required: true }
+  },
+  { timestamps: true }
+);
+
+const Ejercicio: Model<IEjercicio> = mongoose.model<IEjercicio>("Ejercicio", ejercicioSchema, "ejercicios");
+export default Ejercicio;
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/middlewares/authMiddleware.ts ---
+// src/middlewares/authMiddleware.ts
+
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import User, { IUser } from "../models/User";
+
+interface JwtPayload {
+  id: string;
+}
+
+// Extiende la interfaz de Request para incluir `user`
+interface AuthenticatedRequest extends Request {
+  user?: IUser;
+}
+
+export const protect = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  let token: string | undefined;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    token = req.headers.authorization.split(" ")[1];
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
+
+      const user = await User.findById(decoded.id).select("-password");
+      if (!user) {
+        res.status(401).json({ message: "Usuario no encontrado" });
+        return;
+      }
+
+      req.user = user; // Aquí asignamos req.user
+      next();
+    } catch (error) {
+      res.status(401).json({ message: "Token inválido" });
+    }
+  } else {
+    res.status(401).json({ message: "No autorizado, no se proporcionó token" });
+  }
+};
+
+
+
