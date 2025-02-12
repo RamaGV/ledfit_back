@@ -2,13 +2,13 @@
 
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+
 import User, { IUser } from "../models/User";
 
 interface JwtPayload {
   id: string;
 }
 
-// Extiende la interfaz de Request para incluir `user`
 interface AuthenticatedRequest extends Request {
   user?: IUser;
 }
@@ -28,7 +28,7 @@ export const protect = async (req: AuthenticatedRequest, res: Response, next: Ne
         return;
       }
 
-      req.user = user; // Aquí asignamos req.user
+      req.user = user;
       next();
     } catch (error) {
       res.status(401).json({ message: "Token inválido" });
@@ -37,4 +37,3 @@ export const protect = async (req: AuthenticatedRequest, res: Response, next: Ne
     res.status(401).json({ message: "No autorizado, no se proporcionó token" });
   }
 };
-
