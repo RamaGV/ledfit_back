@@ -1,13 +1,14 @@
 // --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/server.ts ---
 // src/server.ts
 
-import entenamientosRoutes from "./routes/entrenamientosRoutes";
-import actuadoresRoutes from "./routes/ejerciciosRoutes";
-
+import connectDB from "./config/db";
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import connectDB from "./config/db";
+
+import entenamientosRoutes from "./routes/entrenamientosRoutes";
+import actuadoresRoutes from "./routes/ejerciciosRoutes";
+import authRoutes from "./routes/authRoutes";
 
 dotenv.config();
 connectDB();
@@ -20,6 +21,7 @@ app.use(cors());
 // Rutas
 app.use("/api/entrenamientos", entenamientosRoutes);
 app.use("/api/ejercicios", actuadoresRoutes);
+app.use("/api/auth", authRoutes);
 
 // Middleware 404
 app.use((req, res) => {
@@ -61,6 +63,23 @@ const connectDB = async (): Promise<void> => {
 };
 
 export default connectDB;
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/routes/authRoutes.ts ---
+// src/routes/authRoutes.ts
+
+import express from "express";
+
+import { register, login, getUserProfile } from "../controllers/authController";
+import { protect } from "../middlewares/authMiddleware";
+
+const router = express.Router();
+
+router.post("/register", register);
+router.post("/login", login);
+router.get("/profile", protect, getUserProfile);
+
+export default router;
 
 
 // --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/routes/ejerciciosRoutes.ts ---
@@ -111,7 +130,7 @@ import Entrenamiento from "../models/Entrenamiento";
 export const getAllEntrenamientos = async (req: Request, res: Response) => {
   try {
     const entrenamientos = await Entrenamiento.find({})
-    .populate("rondas._id")
+    .populate("ejercicios")
     
     res.json(entrenamientos);
   } catch (error) {
@@ -124,17 +143,101 @@ export const getAllEntrenamientos = async (req: Request, res: Response) => {
 export const getEntrenamientoById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const cultivo = await Entrenamiento.findById(id)
-    .populate("rondas._id")
+    const entrenamiento = await Entrenamiento.findById(id).populate("ejercicios");
 
-    if (!cultivo) {
-      return res.status(404).json({ message: "Cultivo no encontrado" });
+    if (!entrenamiento) {
+      return res.status(404).json({ message: "Entrenamiento no encontrado" });
     }
 
-    return res.json(cultivo);
+    return res.json(entrenamiento);
   } catch (error) {
-    return res.status(500).json({ message: "Error al obtener el cultivo", error });
+    return res.status(500).json({ message: "Error al obtener el entrenamiento", error });
   }
+};
+
+
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/controllers/authController.ts ---
+// src/controllers/authController.ts
+
+import { Request, Response } from "express";
+import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+dotenv.config();
+
+import User, { IUser } from "../models/User";
+
+// Extiende la interfaz de Request para incluir `user`
+interface AuthenticatedRequest extends Request {
+  user?: IUser;
+}
+
+// Generar token JWT
+const generateToken = (id: mongoose.Types.ObjectId): string => {
+    return jwt.sign({ id }, process.env.JWT_SECRET as string, {
+      expiresIn: process.env.JWT_EXPIRES_IN || "1d",
+    });
+  };
+
+// Registro de usuario
+export const register = async (req: Request, res: Response): Promise<void> => {
+    const { name, email, password } = req.body;
+    console.log("Datos recibidos:", { name, email, password });
+  
+    try {
+      const userExists = await User.findOne({ email: email });
+      if (userExists) {
+        res.status(400).json({ message: "El usuario ya existe" });
+        return;
+      }
+
+      const user = await User.create({ name, email, password });
+      console.log("Usuario creado:", user);
+      const token = generateToken(user._id as mongoose.Types.ObjectId);
+      console.log("Token generado:", token);
+      res.status(201).json({ token, user: { id: user._id, name, email } });
+    } catch (error) {
+      console.error("Error en register:", error);
+      res.status(500).json({ message: "Error al registrar usuario" });
+    }
+  };
+
+// Login de usuario
+export const login = async (req: Request, res: Response): Promise<void> => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(400).json({ message: "Credenciales inválidas" });
+      return;
+    }
+
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      res.status(400).json({ message: "Credenciales inválidas" });
+      return;
+    }
+
+    const token = generateToken(user._id as mongoose.Types.ObjectId);
+    res.status(200).json({ token, user: { id: user._id, name: user.name, email } });
+  } catch (error) {
+    res.status(500).json({ message: "Error al iniciar sesión" });
+  }
+};
+
+// Obtener perfil del usuario autenticado
+export const getUserProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "No autorizado" });
+    return;
+  }
+
+  res.json({
+    id: req.user._id,
+    name: req.user.name,
+    email: req.user.email,
+  });
 };
 
 
@@ -171,37 +274,74 @@ export const getEjercicioById = async (req: Request, res: Response) => {
 };
 
 
+// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/models/User.ts ---
+// src/models/User.ts
+import mongoose, { Schema, Document, Model } from "mongoose";
+import bcrypt from "bcryptjs";
+
+export interface IUser extends Document {
+  name: string;
+  email: string;
+  password: string;
+  entrenamientos?: mongoose.Types.ObjectId[]; // Agregamos un array opcional para favoritos
+  matchPassword(enteredPassword: string): Promise<boolean>;
+}
+
+const userSchema: Schema<IUser> = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    entrenamientos: [{ type: mongoose.Schema.Types.ObjectId, ref: "Entrenamiento" }],
+  },
+  { timestamps: true }
+);
+
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) {
+    return next();
+  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  return next();
+});
+
+userSchema.methods.matchPassword = async function (enteredPassword: string): Promise<boolean> {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
+const User: Model<IUser> = mongoose.model<IUser>("User", userSchema);
+export default User;
+
+
 // --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/models/Entrenamiento.ts ---
 // src/models/Entrenamiento.ts
 
 import mongoose, { Model } from "mongoose";
 
-interface IRondas {
-  _id: mongoose.Types.ObjectId;
-}
+import type { IEjercicio } from "./Ejercicio";
+
 
 export interface IEntrenamiento {
   _id: mongoose.Types.ObjectId;
   nombre: string;
-  rondas: IRondas[];
+  ejercicios: IEjercicio[];
   imagen: string;
   tiempoTotal: number;
   grupo: string;
   descripcion: string; 
 }
 
-const rondaSchema = new mongoose.Schema<IRondas>(
-  {
-    _id: { type: mongoose.Schema.Types.ObjectId, ref: "Ejercicio" },
-  },
-  { _id: false }
-);
-
 const entrenamientoSchema = new mongoose.Schema<IEntrenamiento>(
   {
     _id: { type: mongoose.Schema.Types.ObjectId, required: true },
     nombre: { type: String, required: true },
-    rondas: [rondaSchema],
+    ejercicios: [
+      { 
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Ejercicio",
+      }
+    ],
     imagen: { type: String, required: true },
     tiempoTotal: { type: Number, required: true },
     grupo: { type: String, required: true },
@@ -251,13 +391,13 @@ export default Ejercicio;
 
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+
 import User, { IUser } from "../models/User";
 
 interface JwtPayload {
   id: string;
 }
 
-// Extiende la interfaz de Request para incluir `user`
 interface AuthenticatedRequest extends Request {
   user?: IUser;
 }
@@ -277,7 +417,7 @@ export const protect = async (req: AuthenticatedRequest, res: Response, next: Ne
         return;
       }
 
-      req.user = user; // Aquí asignamos req.user
+      req.user = user;
       next();
     } catch (error) {
       res.status(401).json({ message: "Token inválido" });
@@ -286,6 +426,5 @@ export const protect = async (req: AuthenticatedRequest, res: Response, next: Ne
     res.status(401).json({ message: "No autorizado, no se proporcionó token" });
   }
 };
-
 
 
