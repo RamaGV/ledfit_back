@@ -8,7 +8,6 @@ import cors from "cors";
 import entenamientosRoutes from "./routes/entrenamientosRoutes";
 import actuadoresRoutes from "./routes/ejerciciosRoutes";
 import authRoutes from "./routes/authRoutes";
-import favsRoutes from "./routes/favsRoutes";
 
 dotenv.config();
 connectDB();
@@ -22,7 +21,6 @@ app.use(cors());
 app.use("/api/entrenamientos", entenamientosRoutes);
 app.use("/api/ejercicios", actuadoresRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api", favsRoutes);
 
 // Middleware 404
 app.use((req, res) => {
