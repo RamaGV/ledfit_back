@@ -36,7 +36,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       console.log("Usuario creado:", user);
       const token = generateToken(user._id as mongoose.Types.ObjectId);
       console.log("Token generado:", token);
-      res.status(201).json({ token, user: { id: user._id, name, email } });
+      res.status(201).json({ token, user: { id: user._id, name, email, favs: user.favs } });
     } catch (error) {
       console.error("Error en register:", error);
       res.status(500).json({ message: "Error al registrar usuario" });
@@ -61,7 +61,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const token = generateToken(user._id as mongoose.Types.ObjectId);
-    res.status(200).json({ token, user: { id: user._id, name: user.name, email } });
+    res.status(200).json({ token, user: { id: user._id, name: user.name, email, favs: user.favs } });
   } catch (error) {
     res.status(500).json({ message: "Error al iniciar sesión" });
   }
@@ -78,5 +78,55 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response): 
     id: req.user._id,
     name: req.user.name,
     email: req.user.email,
+    favs: req.user.favs || []
   });
+};
+
+// Obtener favoritos del usuario 
+export const getFavs = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Usuario no autenticado" });
+    return;
+  }
+  res.json({ favs: req.user.favs || [] });
+};
+
+// Agregar un entrenamiento a favoritos
+export const addFav = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Usuario no autenticado" });
+    return;
+  }
+  const { entrenamientoId } = req.params;
+  try {
+    // Evitar duplicados (asumiendo que usas 'favs' en el modelo)
+    if (req.user.favs && req.user.favs.includes(new mongoose.Types.ObjectId(entrenamientoId))) {
+      res.status(400).json({ message: "El entrenamiento ya está en favoritos" });
+      return;
+    }
+    req.user.favs = req.user.favs || [];
+    req.user.favs.push(new mongoose.Types.ObjectId(entrenamientoId));
+    await req.user.save();
+    res.json({ favs: req.user.favs });
+  } catch (error) {
+    res.status(500).json({ message: "Error al agregar a favoritos", error });
+  }
+};
+
+// Eliminar un entrenamiento de favoritos
+export const removeFav = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Usuario no autenticado" });
+    return;
+  }
+  const { entrenamientoId } = req.params;
+  try {
+    req.user.favs = (req.user.favs || []).filter(
+      (fav) => fav.toString() !== entrenamientoId
+    );
+    await req.user.save();
+    res.json({ favs: req.user.favs });
+  } catch (error) {
+    res.status(500).json({ message: "Error al eliminar de favoritos", error });
+  }
 };
