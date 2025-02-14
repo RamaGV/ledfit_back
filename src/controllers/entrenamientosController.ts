@@ -6,9 +6,8 @@ import Entrenamiento from "../models/Entrenamiento";
 // GET: Listar todos los entrenamientos
 export const getAllEntrenamientos = async (req: Request, res: Response) => {
   try {
-    const entrenamientos = await Entrenamiento.find({})
-    .populate("ejercicios")
-    
+    const entrenamientos = await Entrenamiento.find({}).populate("ejercicios");
+    console.log("Entrenamientos obtenidos:", entrenamientos); // Log para verificar datos
     res.json(entrenamientos);
   } catch (error) {
     console.error("Error getAllEntrenamientos:", error);
