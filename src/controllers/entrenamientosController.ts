@@ -6,12 +6,7 @@ import Entrenamiento from "../models/Entrenamiento";
 // GET: Listar todos los entrenamientos
 export const getAllEntrenamientos = async (req: Request, res: Response) => {
   try {
-<<<<<<< HEAD
-    const entrenamientos = await Entrenamiento.find({}).populate("ejercicios");
-    console.log("Entrenamientos obtenidos:", entrenamientos); // Log para verificar datos
-=======
     const entrenamientos = await Entrenamiento.find({}).populate("ejercicios.ejercicioId");
->>>>>>> 5333383 (Modifico bd)
     res.json(entrenamientos);
   } catch (error) {
     console.error("Error getAllEntrenamientos:", error);
@@ -34,3 +29,4 @@ export const getEntrenamientoById = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Error al obtener el entrenamiento", error });
   }
 };
+
