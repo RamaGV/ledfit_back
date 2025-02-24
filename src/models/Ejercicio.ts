@@ -1,11 +1,8 @@
-// src/models/Ejercicio.ts
-
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IEjercicio extends Document {
   _id: mongoose.Types.ObjectId;
   nombre: string;
-  duracion: number;
   imagen: string;
   calorias: number;
   descripcion: string;
@@ -14,9 +11,7 @@ export interface IEjercicio extends Document {
 
 const ejercicioSchema: Schema<IEjercicio> = new mongoose.Schema(
   {
-    _id: { type: mongoose.Schema.Types.ObjectId, required: true },
     descripcion: { type: String, required: true },
-    duracion: { type: Number, required: true },
     calorias: { type: Number, required: true },
     imagen: { type: String, required: true },
     nombre: { type: String, required: true },
