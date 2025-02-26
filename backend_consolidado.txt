@@ -1,4 +1,4 @@
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/server.ts ---
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/server.ts ---
 // src/server.ts
 
 import connectDB from "./config/db";
@@ -34,7 +34,167 @@ app.listen(PORT, () => {
 });
 
 
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/types/express.d.ts ---
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/models/User.ts ---
+// src/models/User.ts
+import mongoose, { Schema, Document, Model } from "mongoose";
+import bcrypt from "bcryptjs";
+
+export interface IUser extends Document {
+  name: string;
+  email: string;
+  password: string;
+  favs?: mongoose.Types.ObjectId[];
+  matchPassword(enteredPassword: string): Promise<boolean>;
+}
+
+const userSchema: Schema<IUser> = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    favs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Entrenamiento" }],
+  },
+  { timestamps: true }
+);
+
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) {
+    return next();
+  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  return next();
+});
+
+userSchema.methods.matchPassword = async function (enteredPassword: string): Promise<boolean> {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
+const User: Model<IUser> = mongoose.model<IUser>("User", userSchema);
+export default User;
+
+
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/models/Entrenamiento.ts ---
+// src/models/Entrenamiento.ts
+
+import mongoose, { Model, Document } from "mongoose";
+import type { IEjercicio } from "./Ejercicio";
+
+// Definición del subdocumento para cada ejercicio en un entrenamiento
+export interface IEntrenamientoEjercicio {
+  ejercicioId: mongoose.Types.ObjectId;
+  tiempo: number;
+}
+
+export interface IEntrenamiento extends Document {
+  nombre: string;
+  ejercicios: IEntrenamientoEjercicio[];
+  imagen: string;
+  tiempoTotal: number;
+  grupo: string;
+  descripcion: string;
+}
+
+// Esquema para el subdocumento de ejercicios
+const entrenamientoEjercicioSchema = new mongoose.Schema<IEntrenamientoEjercicio>(
+  {
+    ejercicioId: { type: mongoose.Schema.Types.ObjectId, ref: "Ejercicio", required: true },
+    tiempo: { type: Number, required: true }
+  },
+  { _id: false } // No se necesita _id propio para el subdocumento
+);
+
+// Esquema principal de Entrenamiento
+const entrenamientoSchema = new mongoose.Schema<IEntrenamiento>(
+  {
+    nombre: { type: String, required: true },
+    ejercicios: [entrenamientoEjercicioSchema],
+    imagen: { type: String, required: true },
+    tiempoTotal: { type: Number, required: true },
+    grupo: { type: String, required: true },
+    descripcion: { type: String, required: true }
+  },
+  { timestamps: true }
+);
+
+const Entrenamiento: Model<IEntrenamiento> = mongoose.model<IEntrenamiento>(
+  "Entrenamiento",
+  entrenamientoSchema,
+  "entrenamientos"
+);
+export default Entrenamiento;
+
+
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/models/Ejercicio.ts ---
+import mongoose, { Schema, Document, Model } from "mongoose";
+
+export interface IEjercicio extends Document {
+  _id: mongoose.Types.ObjectId;
+  nombre: string;
+  imagen: string;
+  calorias: number;
+  descripcion: string;
+  grupo: string;
+}
+
+const ejercicioSchema: Schema<IEjercicio> = new mongoose.Schema(
+  {
+    descripcion: { type: String, required: true },
+    calorias: { type: Number, required: true },
+    imagen: { type: String, required: true },
+    nombre: { type: String, required: true },
+    grupo: { type: String, required: true }
+  },
+  { timestamps: true }
+);
+
+const Ejercicio: Model<IEjercicio> = mongoose.model<IEjercicio>("Ejercicio", ejercicioSchema, "ejercicios");
+export default Ejercicio;
+
+
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/middlewares/authMiddleware.ts ---
+// src/middlewares/authMiddleware.ts
+
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+
+import User, { IUser } from "../models/User";
+
+interface JwtPayload {
+  id: string;
+}
+
+interface AuthenticatedRequest extends Request {
+  user?: IUser;
+}
+
+export const protect = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  let token: string | undefined;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    token = req.headers.authorization.split(" ")[1];
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
+
+      const user = await User.findById(decoded.id).select("-password");
+      if (!user) {
+        res.status(401).json({ message: "Usuario no encontrado" });
+        return;
+      }
+
+      req.user = user;
+      next();
+    } catch (error) {
+      res.status(401).json({ message: "Token inválido" });
+    }
+  } else {
+    res.status(401).json({ message: "No autorizado, no se proporcionó token" });
+  }
+};
+
+
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/types/express.d.ts ---
 // src/types/express.d.ts
 import { IUser } from "../models/User";
 
@@ -47,85 +207,7 @@ declare global {
 }
 
 
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/config/db.ts ---
-// src/config/db.ts
-
-import mongoose from "mongoose";
-
-const connectDB = async (): Promise<void> => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI as string);
-    console.log("MongoDB conectado");
-  } catch (error) {
-    console.error("Error al conectar a MongoDB:", error);
-    process.exit(1);
-  }
-};
-
-export default connectDB;
-
-
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/routes/authRoutes.ts ---
-// src/routes/authRoutes.ts
-
-import express from "express";
-
-import { register, login, getUserProfile, getFavs, addFav, removeFav } from "../controllers/authController";
-import { protect } from "../middlewares/authMiddleware";
-
-const router = express.Router();
-
-router.post("/register", register);
-router.post("/login", login);
-router.get("/profile", protect, getUserProfile);
-
-// Rutas para favoritos:
-router.get("/favs", protect, getFavs);
-router.post("/favs/agregar/:entrenamientoId", protect, addFav);
-router.delete("/favs/eliminar/:entrenamientoId", protect, removeFav);
-
-export default router;
-
-
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/routes/ejerciciosRoutes.ts ---
-// src/routes/ejerciciosRoutes.ts
-
-import { getAllEjercicios, getEjercicioById } from "../controllers/ejercicioController";
-import express from "express";
-
-const router = express.Router();
-
-// GET /api/ejercicios -> Lista todos los ejercicios
-router.get("/", getAllEjercicios);
-
-// GET /api/ejercicios/:id -> Obtiene un ejercicio por ID
-router.get("/:id", (req, res) => {
-  getEjercicioById(req, res);
-});
-
-export default router;
-
-
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/routes/entrenamientosRoutes.ts ---
-// src/routes/medidasActuadoresRoutes.ts
-
-import express from "express";
-import { getAllEntrenamientos ,getEntrenamientoById } from "../controllers/entrenamientosController";
-
-const router = express.Router();
-
-// GET /api/entrenamientos -> Lista todos los entrenamientos
-router.get("/", getAllEntrenamientos);
-
-// GET /api/entrenamientos/:id -> Obtiene un entrenamiento por ID
-router.get("/:id", (req, res) => {
-    getEntrenamientoById(req, res);
-});
-
-export default router;
-
-
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/controllers/entrenamientosController.ts ---
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/controllers/entrenamientosController.ts ---
 // src/controllers/entrenamientosController.ts
 
 import { Request, Response } from "express";
@@ -134,9 +216,7 @@ import Entrenamiento from "../models/Entrenamiento";
 // GET: Listar todos los entrenamientos
 export const getAllEntrenamientos = async (req: Request, res: Response) => {
   try {
-    const entrenamientos = await Entrenamiento.find({})
-    .populate("ejercicios")
-    
+    const entrenamientos = await Entrenamiento.find({}).populate("ejercicios.ejercicioId");
     res.json(entrenamientos);
   } catch (error) {
     console.error("Error getAllEntrenamientos:", error);
@@ -144,11 +224,11 @@ export const getAllEntrenamientos = async (req: Request, res: Response) => {
   }
 };
 
-// GET: Obtener entrenamientos por ID
+// GET: Obtener entrenamiento por ID
 export const getEntrenamientoById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const entrenamiento = await Entrenamiento.findById(id).populate("ejercicios");
+    const entrenamiento = await Entrenamiento.findById(id).populate("ejercicios.ejercicioId");
 
     if (!entrenamiento) {
       return res.status(404).json({ message: "Entrenamiento no encontrado" });
@@ -161,7 +241,41 @@ export const getEntrenamientoById = async (req: Request, res: Response) => {
 };
 
 
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/controllers/authController.ts ---
+
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/controllers/ejercicioController.ts ---
+// src/controllers/ejercicioController.ts
+
+import { Request, Response } from "express";
+import Ejercicio from "../models/Ejercicio";
+
+// GET: Listar todos los controles
+export const getAllEjercicios = async (req: Request, res: Response) => {
+  try {
+    const ejercicios = await Ejercicio.find({});
+
+    res.json(ejercicios);
+  } catch (error) {
+    res.status(500).json({ message: "Error al obtener los ejercicios", error });
+  }
+};
+
+// GET: Obtener ejercicio por ID
+export const getEjercicioById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const ejercicio = await Ejercicio.findById(id);
+    if (!ejercicio) {
+      return res.status(404).json({ message: "Ejercicio no encontrado" });
+    }
+
+    res.json(ejercicio);
+  } catch (error) {
+    res.status(500).json({ message: "Error al obtener el ejercicio", error });
+  }
+};
+
+
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/controllers/authController.ts ---
 // src/controllers/authController.ts
 
 import { Request, Response } from "express";
@@ -296,190 +410,83 @@ export const removeFav = async (req: AuthenticatedRequest, res: Response): Promi
 };
 
 
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/controllers/ejercicioController.ts ---
-// src/controllers/ejercicioController.ts
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/routes/authRoutes.ts ---
+// src/routes/authRoutes.ts
 
-import { Request, Response } from "express";
-import Ejercicio from "../models/Ejercicio";
+import express from "express";
 
-// GET: Listar todos los controles
-export const getAllEjercicios = async (req: Request, res: Response) => {
-  try {
-    const ejercicios = await Ejercicio.find({});
+import { register, login, getUserProfile, getFavs, addFav, removeFav } from "../controllers/authController";
+import { protect } from "../middlewares/authMiddleware";
 
-    res.json(ejercicios);
-  } catch (error) {
-    res.status(500).json({ message: "Error al obtener los ejercicios", error });
-  }
-};
+const router = express.Router();
 
-// GET: Obtener ejercicio por ID
-export const getEjercicioById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const ejercicio = await Ejercicio.findById(id);
-    if (!ejercicio) {
-      return res.status(404).json({ message: "Ejercicio no encontrado" });
-    }
+router.post("/register", register);
+router.post("/login", login);
+router.get("/profile", protect, getUserProfile);
 
-    res.json(ejercicio);
-  } catch (error) {
-    res.status(500).json({ message: "Error al obtener el ejercicio", error });
-  }
-};
+// Rutas para favoritos:
+router.get("/favs", protect, getFavs);
+router.post("/favs/agregar/:entrenamientoId", protect, addFav);
+router.delete("/favs/eliminar/:entrenamientoId", protect, removeFav);
+
+export default router;
 
 
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/models/User.ts ---
-// src/models/User.ts
-import mongoose, { Schema, Document, Model } from "mongoose";
-import bcrypt from "bcryptjs";
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/routes/entrenamientosRoutes.ts ---
+// src/routes/medidasActuadoresRoutes.ts
 
-export interface IUser extends Document {
-  name: string;
-  email: string;
-  password: string;
-  favs?: mongoose.Types.ObjectId[];
-  matchPassword(enteredPassword: string): Promise<boolean>;
-}
+import express from "express";
+import { getAllEntrenamientos ,getEntrenamientoById } from "../controllers/entrenamientosController";
 
-const userSchema: Schema<IUser> = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    favs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Entrenamiento" }],
-  },
-  { timestamps: true }
-);
+const router = express.Router();
 
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) {
-    return next();
-  }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  return next();
+// GET /api/entrenamientos -> Lista todos los entrenamientos
+router.get("/", getAllEntrenamientos);
+
+// GET /api/entrenamientos/:id -> Obtiene un entrenamiento por ID
+router.get("/:id", (req, res) => {
+    getEntrenamientoById(req, res);
 });
 
-userSchema.methods.matchPassword = async function (enteredPassword: string): Promise<boolean> {
-  return await bcrypt.compare(enteredPassword, this.password);
-};
-
-const User: Model<IUser> = mongoose.model<IUser>("User", userSchema);
-export default User;
+export default router;
 
 
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/models/Entrenamiento.ts ---
-// src/models/Entrenamiento.ts
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/routes/ejerciciosRoutes.ts ---
+// src/routes/ejerciciosRoutes.ts
 
-import mongoose, { Model } from "mongoose";
+import { getAllEjercicios, getEjercicioById } from "../controllers/ejercicioController";
+import express from "express";
 
-import type { IEjercicio } from "./Ejercicio";
+const router = express.Router();
 
+// GET /api/ejercicios -> Lista todos los ejercicios
+router.get("/", getAllEjercicios);
 
-export interface IEntrenamiento {
-  _id: mongoose.Types.ObjectId;
-  nombre: string;
-  ejercicios: IEjercicio[];
-  imagen: string;
-  tiempoTotal: number;
-  grupo: string;
-  descripcion: string; 
-}
+// GET /api/ejercicios/:id -> Obtiene un ejercicio por ID
+router.get("/:id", (req, res) => {
+  getEjercicioById(req, res);
+});
 
-const entrenamientoSchema = new mongoose.Schema<IEntrenamiento>(
-  {
-    _id: { type: mongoose.Schema.Types.ObjectId, required: true },
-    nombre: { type: String, required: true },
-    ejercicios: [
-      { 
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Ejercicio",
-      }
-    ],
-    imagen: { type: String, required: true },
-    tiempoTotal: { type: Number, required: true },
-    grupo: { type: String, required: true },
-    descripcion: { type: String, required: true },
-  },
-  { timestamps: true }
-);
-
-const Entrenamiento: Model<IEntrenamiento> = mongoose.model<IEntrenamiento>("Entrenamiento", entrenamientoSchema, "entrenamientos");
-export default Entrenamiento;
+export default router;
 
 
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/models/Ejercicio.ts ---
-// src/models/Ejercicio.ts
+// --- Contenido de /home/rama/Escritorio/Ledfit/ledfit_back/src/config/db.ts ---
+// src/config/db.ts
 
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+dotenv.config();
 
-export interface IEjercicio extends Document {
-  _id: mongoose.Types.ObjectId;
-  nombre: string;
-  duracion: number;
-  imagen: string;
-  calorias: number;
-  descripcion: string;
-  grupo: string;
-}
-
-const ejercicioSchema: Schema<IEjercicio> = new mongoose.Schema(
-  {
-    _id: { type: mongoose.Schema.Types.ObjectId, required: true },
-    descripcion: { type: String, required: true },
-    duracion: { type: Number, required: true },
-    calorias: { type: Number, required: true },
-    imagen: { type: String, required: true },
-    nombre: { type: String, required: true },
-    grupo: { type: String, required: true }
-  },
-  { timestamps: true }
-);
-
-const Ejercicio: Model<IEjercicio> = mongoose.model<IEjercicio>("Ejercicio", ejercicioSchema, "ejercicios");
-export default Ejercicio;
-
-
-// --- Contenido de /home/rama/Escritorio/ledfit/ledfit_back/src/middlewares/authMiddleware.ts ---
-// src/middlewares/authMiddleware.ts
-
-import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-
-import User, { IUser } from "../models/User";
-
-interface JwtPayload {
-  id: string;
-}
-
-interface AuthenticatedRequest extends Request {
-  user?: IUser;
-}
-
-export const protect = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
-  let token: string | undefined;
-
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    token = req.headers.authorization.split(" ")[1];
-
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
-
-      const user = await User.findById(decoded.id).select("-password");
-      if (!user) {
-        res.status(401).json({ message: "Usuario no encontrado" });
-        return;
-      }
-
-      req.user = user;
-      next();
-    } catch (error) {
-      res.status(401).json({ message: "Token inválido" });
-    }
-  } else {
-    res.status(401).json({ message: "No autorizado, no se proporcionó token" });
+const connectDB = async (): Promise<void> => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI as string);
+    console.log("MongoDB conectado");
+  } catch (error) {
+    console.error("Error al conectar a MongoDB:", error);
+    process.exit(1);
   }
 };
+
+export default connectDB;
 
 

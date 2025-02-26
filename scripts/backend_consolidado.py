@@ -16,7 +16,7 @@ def get_all_files_text(base_dir, output_file):
         print(f"Error al procesar los archivos: {e}")
 
 # Configuración
-base_dir = "/home/rama/Escritorio/ledfit/ledfit_back/src"  # Cambia esto a la ruta de tu directorio "src"
+base_dir = "/home/rama/Escritorio/Ledfit/ledfit_back/src"  # Cambia esto a la ruta de tu directorio "src"
 output_file = "backend_consolidado.txt"  # Nombre del archivo de salida
 
 get_all_files_text(base_dir, output_file)
