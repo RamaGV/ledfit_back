@@ -1,7 +1,6 @@
 // src/models/Entrenamiento.ts
 
 import mongoose, { Model, Document } from "mongoose";
-import type { IEjercicio } from "./Ejercicio";
 
 // Definición del subdocumento para cada ejercicio en un entrenamiento
 export interface IEntrenamientoEjercicio {
