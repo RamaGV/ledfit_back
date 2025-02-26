@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 
 import entenamientosRoutes from "./routes/entrenamientosRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
 import actuadoresRoutes from "./routes/ejerciciosRoutes";
 import authRoutes from "./routes/authRoutes";
 
@@ -19,6 +20,7 @@ app.use(cors());
 
 // Rutas
 app.use("/api/entrenamientos", entenamientosRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/ejercicios", actuadoresRoutes);
 app.use("/api/auth", authRoutes);
 
