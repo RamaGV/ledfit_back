@@ -3,10 +3,11 @@
 import { Request, Response } from "express";
 import Notification from "../models/Notification";
 
+// Obtiene las notificaciones del usuario autenticado a partir del token
 export const getNotifications = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Si se envía un userId por parámetros (para pruebas), úsalo. De lo contrario, usa req.user
-    const userId = req.params.userId || req.user?._id;
+    // Se usa siempre el id obtenido del middleware protect
+    const userId = req.user?._id;
     if (!userId) {
       res.status(400).json({ message: "No se encontró el usuario autenticado" });
       return;
@@ -20,6 +21,7 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
   }
 };
 
+// Marca una notificación como leída
 export const markNotificationAsRead = async (req: Request, res: Response): Promise<void> => {
   try {
     const { notificationId } = req.params;
@@ -38,11 +40,17 @@ export const markNotificationAsRead = async (req: Request, res: Response): Promi
   }
 };
 
+// Crea una notificación para el usuario autenticado (no se envía el id en el body)
 export const createNotification = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { title, message, user } = req.body; // Recibes "message" en el body
-    // Usa "content" en lugar de "message" para que coincida con el modelo
-    const notification = new Notification({ title, content: message, user });
+    const { title, message } = req.body; // Se espera title y message en el body
+    const userId = req.user?._id; // Se extrae el id del usuario del token
+    if (!userId) {
+      res.status(400).json({ message: "Usuario no autenticado" });
+      return;
+    }
+    // Se utiliza "content" en lugar de "message" para que coincida con el modelo
+    const notification = new Notification({ title, content: message, user: userId });
     await notification.save();
     res.json({ message: "Notificación creada" });
     return;
