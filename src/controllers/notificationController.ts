@@ -8,6 +8,7 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
   try {
     // Se usa siempre el id obtenido del middleware protect
     const userId = req.user?._id;
+    console.log("ID del usuario autenticado:", userId);
     if (!userId) {
       res.status(400).json({ message: "No se encontró el usuario autenticado" });
       return;
