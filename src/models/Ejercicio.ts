@@ -4,7 +4,7 @@ export interface IEjercicio extends Document {
   _id: mongoose.Types.ObjectId;
   nombre: string;
   imagen: string;
-  calorias: number;
+  caloriasPorSegundo: number;
   descripcion: string;
   grupo: string;
 }
@@ -12,7 +12,7 @@ export interface IEjercicio extends Document {
 const ejercicioSchema: Schema<IEjercicio> = new mongoose.Schema(
   {
     descripcion: { type: String, required: true },
-    calorias: { type: Number, required: true },
+    caloriasPorSegundo: { type: Number, required: true },
     imagen: { type: String, required: true },
     nombre: { type: String, required: true },
     grupo: { type: String, required: true }

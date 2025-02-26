@@ -1,4 +1,5 @@
 // src/models/User.ts
+
 import mongoose, { Schema, Document, Model } from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -7,6 +8,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   favs?: mongoose.Types.ObjectId[];
+  caloriasQuemadas: number;
   matchPassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -16,6 +18,7 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     favs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Entrenamiento" }],
+    caloriasQuemadas: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
