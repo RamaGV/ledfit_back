@@ -2,7 +2,7 @@
 
 import express from "express";
 
-import { register, login, getUserProfile, getFavs, addFav, removeFav } from "../controllers/authController";
+import { register, login, getUserProfile, getFavs, addFav, removeFav, updateCaloriasQuemadas } from "../controllers/authController";
 import { protect } from "../middlewares/authMiddleware";
 
 const router = express.Router();
@@ -15,5 +15,7 @@ router.get("/profile", protect, getUserProfile);
 router.get("/favs", protect, getFavs);
 router.post("/favs/agregar/:entrenamientoId", protect, addFav);
 router.delete("/favs/eliminar/:entrenamientoId", protect, removeFav);
+
+router.patch("/update-calorias", protect, updateCaloriasQuemadas);
 
 export default router;

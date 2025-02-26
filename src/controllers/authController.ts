@@ -130,3 +130,31 @@ export const removeFav = async (req: AuthenticatedRequest, res: Response): Promi
     res.status(500).json({ message: "Error al eliminar de favoritos", error });
   }
 };
+
+// Función para actualizar las calorías quemadas del usuario autenticado
+export const updateCaloriasQuemadas = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Se asume que el middleware protect coloca al usuario en req.user
+    if (!req.user) {
+      res.status(401).json({ message: "No autorizado" });
+      return;
+    }
+    const { calorias } = req.body; // Se espera enviar las calorías quemadas en esta sesión
+    if (typeof calorias !== "number") {
+      res.status(400).json({ message: "El valor de calorías es inválido" });
+      return;
+    }
+    
+    // Actualiza sumando las calorías a las que ya lleva el usuario
+    req.user.caloriasQuemadas += calorias;
+    await req.user.save();
+    res.status(200).json({ 
+      message: "Calorías actualizadas correctamente",
+      caloriasQuemadas: req.user.caloriasQuemadas
+    });
+    return;
+  } catch (error) {
+    res.status(500).json({ message: "Error al actualizar calorías", error });
+    return;
+  }
+};
