@@ -248,19 +248,17 @@ export const updateTiempoEntrenado = async (req: AuthenticatedRequest, res: Resp
 };
 
 // Endpoint para actualizar la cantidad de entrenamientos completados
-export const updateEntrenamientosCompletos = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const updateEntrenamientosCompletos = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ message: "No autorizado" });
       return;
     }
-    const { entrenamientos } = req.body; // número a sumar
-    if (typeof entrenamientos !== "number") {
-      res.status(400).json({ message: "El valor de entrenamientos es inválido" });
-      return;
-    }
-    // Sumar la cantidad de entrenamientos completados
-    req.user.entrenamientosCompletos += entrenamientos;
+    // Incrementa en 1 el contador de entrenamientos completados
+    req.user.entrenamientosCompletos += 1;
     await req.user.save();
     res.status(200).json({
       message: "Entrenamientos completados actualizados correctamente",
@@ -272,3 +270,4 @@ export const updateEntrenamientosCompletos = async (req: AuthenticatedRequest, r
     return;
   }
 };
+
