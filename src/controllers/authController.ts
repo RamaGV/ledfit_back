@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 dotenv.config();
 
+import Notification from "../models/Notification";
 import User, { IUser } from "../models/User";
 
 // Extiende la interfaz de Request para incluir `user`
@@ -155,6 +156,119 @@ export const updateCaloriasQuemadas = async (req: Request, res: Response): Promi
     return;
   } catch (error) {
     res.status(500).json({ message: "Error al actualizar calorías", error });
+    return;
+  }
+};
+
+// Función para actualizar los logros del usuario y crear notificaciones
+export const updateUserLogros = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "No autorizado" });
+      return;
+    }
+
+    // Extrae las métricas actuales del usuario
+    const { tiempoEntrenado, caloriasQuemadas, entrenamientosCompletos } = req.user;
+
+    // Guarda una copia de los logros antes de actualizarlos
+    const previousLogros = req.user.logros.map((logro) => ({ ...logro }));
+
+    // Actualiza cada logro según su tipo y el umbral (la propiedad key se convierte a número)
+    const updatedLogros = req.user.logros.map((logro) => {
+      const threshold = Number(logro.key);
+      let obtenido = logro.obtenido; // Conserva el estado actual
+      if (logro.type === "time") {
+        if (tiempoEntrenado >= threshold) {
+          obtenido = true;
+        }
+      } else if (logro.type === "plus") {
+        if (caloriasQuemadas >= threshold) {
+          obtenido = true;
+        }
+      } else if (logro.type === "check") {
+        if (entrenamientosCompletos >= threshold) {
+          obtenido = true;
+        }
+      }
+      return { ...logro, obtenido };
+    });
+
+    // Para cada logro que acaba de cambiar a "obtenido: true" (es decir, antes era false),
+    // se crea una notificación para el usuario.
+    updatedLogros.forEach(async (newLogro, index) => {
+      const prevLogro = previousLogros[index];
+      if (!prevLogro.obtenido && newLogro.obtenido) {
+        const notification = new Notification({
+          user: req.user!._id,
+          title: `Logro alcanzado: ${newLogro.title}`,
+          content: newLogro.content,
+          type: newLogro.type,
+        });
+        await notification.save();
+      }
+    });
+
+    // Guarda el nuevo array de logros en el usuario y actualiza la BD
+    req.user.logros = updatedLogros;
+    await req.user.save();
+
+    res.status(200).json({ logros: req.user.logros });
+    return;
+  } catch (error) {
+    res.status(500).json({ message: "Error al actualizar logros", error });
+    return;
+  }
+};
+
+// Endpoint para actualizar el tiempo entrenado
+export const updateTiempoEntrenado = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "No autorizado" });
+      return;
+    }
+    const { tiempo } = req.body; // tiempo en segundos
+    if (typeof tiempo !== "number") {
+      res.status(400).json({ message: "El valor de tiempo es inválido" });
+      return;
+    }
+    // Sumar el tiempo entrenado
+    req.user.tiempoEntrenado += tiempo;
+    await req.user.save();
+    res.status(200).json({
+      message: "Tiempo entrenado actualizado correctamente",
+      tiempoEntrenado: req.user.tiempoEntrenado,
+    });
+    return;
+  } catch (error) {
+    res.status(500).json({ message: "Error al actualizar tiempo entrenado", error });
+    return;
+  }
+};
+
+// Endpoint para actualizar la cantidad de entrenamientos completados
+export const updateEntrenamientosCompletos = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "No autorizado" });
+      return;
+    }
+    const { entrenamientos } = req.body; // número a sumar
+    if (typeof entrenamientos !== "number") {
+      res.status(400).json({ message: "El valor de entrenamientos es inválido" });
+      return;
+    }
+    // Sumar la cantidad de entrenamientos completados
+    req.user.entrenamientosCompletos += entrenamientos;
+    await req.user.save();
+    res.status(200).json({
+      message: "Entrenamientos completados actualizados correctamente",
+      entrenamientosCompletos: req.user.entrenamientosCompletos,
+    });
+    return;
+  } catch (error) {
+    res.status(500).json({ message: "Error al actualizar entrenamientos completados", error });
     return;
   }
 };

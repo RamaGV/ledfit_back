@@ -8,6 +8,7 @@ export interface ILogro {
   title: string;
   content: string;
   type: "check" | "plus" | "time";
+  obtenido: boolean;
 }
 
 export interface IUser extends Document {
@@ -27,7 +28,8 @@ const logroSchema: Schema = new mongoose.Schema(
     key: { type: String, required: true },
     title: { type: String, required: true },
     content: { type: String, required: true },
-    type: { type: String, enum: ["check", "plus", "time"], required: true }
+    type: { type: String, enum: ["check", "plus", "time"], required: true },
+    obtenido: { type: Boolean, default: false },
   },
   { _id: false }
 );
