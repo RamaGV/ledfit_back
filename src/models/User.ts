@@ -3,22 +3,45 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import bcrypt from "bcryptjs";
 
+export interface ILogro {
+  key: string;
+  title: string;
+  content: string;
+  type: "check" | "plus" | "time";
+}
+
 export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
+  logros: ILogro[];
   favs?: mongoose.Types.ObjectId[];
   caloriasQuemadas: number;
+  tiempoEntrenado: number;
+  entrenamientosCompletos: number;
   matchPassword(enteredPassword: string): Promise<boolean>;
 }
+
+const logroSchema: Schema = new mongoose.Schema(
+  {
+    key: { type: String, required: true },
+    title: { type: String, required: true },
+    content: { type: String, required: true },
+    type: { type: String, enum: ["check", "plus", "time"], required: true }
+  },
+  { _id: false }
+);
 
 const userSchema: Schema<IUser> = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    logros: { type: [logroSchema], default: [] },
     favs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Entrenamiento" }],
     caloriasQuemadas: { type: Number, default: 0 },
+    tiempoEntrenado: { type: Number, default: 0 },
+    entrenamientosCompletos: { type: Number, default: 0 }
   },
   { timestamps: true }
 );
