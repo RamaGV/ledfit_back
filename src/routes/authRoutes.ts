@@ -8,7 +8,7 @@ import {
   addFav, 
   removeFav, 
   updateMetricas,
-  updateUserLogros
+  updateLogros
 } from "../controllers/authController";
 import { protect } from "../middlewares/authMiddleware";
 
@@ -27,6 +27,6 @@ router.delete("/favs/eliminar/:entrenamientoId", protect, removeFav);
 router.patch("/update-metricas", protect, updateMetricas);
 
 // Nueva ruta para actualizar los logros del usuario:
-router.patch("/update-logros", protect, updateUserLogros);
+router.patch("/update-logros", protect, updateLogros);
 
 export default router;

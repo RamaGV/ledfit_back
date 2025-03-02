@@ -132,67 +132,6 @@ export const removeFav = async (req: AuthenticatedRequest, res: Response): Promi
   }
 };
 
-// Función para actualizar los logros del usuario y crear notificaciones
-export const updateUserLogros = async (req: Request, res: Response): Promise<void> => {
-  try {
-    if (!req.user) {
-      res.status(401).json({ message: "No autorizado" });
-      return;
-    }
-
-    // Extrae las métricas actuales del usuario
-    const { tiempoEntrenado, caloriasQuemadas, entrenamientosCompletos } = req.user;
-
-    // Guarda una copia de los logros antes de actualizarlos
-    const previousLogros = req.user.logros.map((logro) => ({ ...logro }));
-
-    // Actualiza cada logro según su tipo y el umbral (la propiedad key se convierte a número)
-    const updatedLogros = req.user.logros.map((logro) => {
-      const threshold = Number(logro.key);
-      let obtenido = logro.obtenido; // Conserva el estado actual
-      if (logro.type === "time") {
-        if (tiempoEntrenado >= threshold) {
-          obtenido = true;
-        }
-      } else if (logro.type === "plus") {
-        if (caloriasQuemadas >= threshold) {
-          obtenido = true;
-        }
-      } else if (logro.type === "check") {
-        if (entrenamientosCompletos >= threshold) {
-          obtenido = true;
-        }
-      }
-      return { ...logro, obtenido };
-    });
-
-    // Para cada logro que acaba de cambiar a "obtenido: true" (es decir, antes era false),
-    // se crea una notificación para el usuario.
-    updatedLogros.forEach(async (newLogro, index) => {
-      const prevLogro = previousLogros[index];
-      if (!prevLogro.obtenido && newLogro.obtenido) {
-        const notification = new Notification({
-          user: req.user!._id,
-          title: `Logro alcanzado: ${newLogro.title}`,
-          content: newLogro.content,
-          type: newLogro.type,
-        });
-        await notification.save();
-      }
-    });
-
-    // Guarda el nuevo array de logros en el usuario y actualiza la BD
-    req.user.logros = updatedLogros;
-    await req.user.save();
-
-    res.status(200).json({ logros: req.user.logros });
-    return;
-  } catch (error) {
-    res.status(500).json({ message: "Error al actualizar logros", error });
-    return;
-  }
-};
-
 // Endpoint para actualizar las métricas de la sesión
 export const updateMetricas = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -224,5 +163,62 @@ export const updateMetricas = async (req: AuthenticatedRequest, res: Response): 
     });
   } catch (error) {
     res.status(500).json({ message: "Error al actualizar métricas", error });
+  }
+};
+
+// Función para actualizar los logros del usuario y crear notificaciones
+export const updateLogros = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Verifica que el usuario esté autenticado
+    if (!req.user) {
+      res.status(401).json({ message: "No autorizado" });
+      return;
+    }
+
+    // Extrae las métricas actuales del usuario
+    const { tiempoEntrenado, caloriasQuemadas, entrenamientosCompletos } = req.user;
+
+    // Guarda una copia de los logros actuales para comparar cambios
+    const previousLogros = req.user.logros.map((logro) => ({ ...logro }));
+
+    // Actualiza cada logro en función de su tipo y umbral
+    const updatedLogros = req.user.logros.map((logro) => {
+      const threshold = Number(logro.key);
+      let obtenido = logro.obtenido; // Se conserva el valor actual
+      if (logro.type === "time" && tiempoEntrenado >= threshold) {
+        obtenido = true;
+      } else if (logro.type === "plus" && entrenamientosCompletos >= threshold) {
+        obtenido = true;
+      } else if (logro.type === "check" && caloriasQuemadas >= threshold) {
+        obtenido = true;
+      }
+      return { ...logro, obtenido };
+    });
+
+    // Itera de forma secuencial sobre los logros actualizados para crear notificaciones
+    for (const [index, newLogro] of updatedLogros.entries()) {
+      const prevLogro = previousLogros[index];
+      // Si el logro pasó de no obtenido a obtenido, crea la notificación
+      if (!prevLogro.obtenido && newLogro.obtenido) {
+        const notification = new Notification({
+          user: req.user._id,
+          title: `Logro alcanzado: ${newLogro.title}`,
+          content: newLogro.content,
+          type: newLogro.type,
+        });
+        await notification.save();
+      }
+    }
+
+    // Actualiza los logros del usuario y guarda en la base de datos
+    req.user.logros = updatedLogros;
+    await req.user.save();
+
+    res.status(200).json({ logros: req.user.logros });
+    return;
+  } catch (error: any) {
+    console.error("Error en updateUserLogros:", error);
+    res.status(500).json({ message: "Error al actualizar logros", error: error.message });
+    return;
   }
 };
