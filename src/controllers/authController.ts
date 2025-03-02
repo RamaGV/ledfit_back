@@ -207,8 +207,9 @@ export const updateLogros = async (
       if (!prevLogro.obtenido && newLogro.obtenido) {
         const notification = new Notification({
           user: req.user._id,
-          title: `Logro alcanzado: ${newLogro.title}`,
-          content: newLogro.content,
+          title: newLogro.title || "Logro alcanzado",
+          // Asigna un valor por defecto si newLogro.content es undefined
+          content: newLogro.content || "¡Has alcanzado un nuevo logro!",
           type: newLogro.type,
         });
         try {
