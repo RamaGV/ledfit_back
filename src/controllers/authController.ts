@@ -201,7 +201,7 @@ export const updateMetricas = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
-    const { tiempo, calorias, entrenamientoCompletado } = req.body;
+    const { tiempo, calorias } = req.body;
 
     // Validación de los valores, si se proporcionan
     if (tiempo !== undefined && typeof tiempo !== "number") {
@@ -222,9 +222,7 @@ export const updateMetricas = async (req: AuthenticatedRequest, res: Response): 
       req.user.caloriasQuemadas += calorias;
     }
     // Actualiza el número de entrenamientos completados
-    if (entrenamientoCompletado) {
-      req.user.entrenamientosCompletos += 1;
-    }
+    req.user.entrenamientosCompletos += 1;
 
     // Guarda los cambios en la base de datos
     await req.user.save();
