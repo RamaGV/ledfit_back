@@ -203,26 +203,15 @@ export const updateMetricas = async (req: AuthenticatedRequest, res: Response): 
 
     const { tiempo, calorias } = req.body;
 
-    // Validación de los valores, si se proporcionan
-    if (tiempo !== undefined && typeof tiempo !== "number") {
-      res.status(400).json({ message: "El valor de tiempo es inválido" });
-      return;
-    }
-    if (calorias !== undefined && typeof calorias !== "number") {
-      res.status(400).json({ message: "El valor de calorías es inválido" });
-      return;
-    }
+    console.log("Datos recibidos:", { tiempo, calorias });
+    req.user.tiempoEntrenado += tiempo; // Actualiza el tiempo entrenado
+    req.user.caloriasQuemadas += calorias; // Actualiza las calorías quemadas
+    req.user.entrenamientosCompletos += 1; // Actualiza el número de entrenamientos completados
 
-    // Actualiza el tiempo entrenado
-    if (tiempo) {
-      req.user.tiempoEntrenado += tiempo;
-    }
-    // Actualiza las calorías quemadas
-    if (calorias) {
-      req.user.caloriasQuemadas += calorias;
-    }
-    // Actualiza el número de entrenamientos completados
-    req.user.entrenamientosCompletos += 1;
+    console.log("Métricas actualizadas:", {
+      tiempoEntrenado: req.user.tiempoEntrenado,
+      caloriasQuemadas: req.user.caloriasQuemadas,
+    });
 
     // Guarda los cambios en la base de datos
     await req.user.save();
