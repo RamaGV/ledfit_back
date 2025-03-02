@@ -167,24 +167,28 @@ export const updateMetricas = async (req: AuthenticatedRequest, res: Response): 
 };
 
 // Función para actualizar los logros del usuario y crear notificaciones
-export const updateLogros = async (req: Request, res: Response): Promise<void> => {
+export const updateLogros = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    // Verifica que el usuario esté autenticado
     if (!req.user) {
       res.status(401).json({ message: "No autorizado" });
       return;
     }
 
-    // Extrae las métricas actuales del usuario
+    // Registra el estado actual de los logros del usuario
+    console.log("Logros actuales:", req.user.logros);
+
     const { tiempoEntrenado, caloriasQuemadas, entrenamientosCompletos } = req.user;
 
-    // Guarda una copia de los logros actuales para comparar cambios
+    // Guarda una copia de los logros antes de actualizarlos
     const previousLogros = req.user.logros.map((logro) => ({ ...logro }));
 
-    // Actualiza cada logro en función de su tipo y umbral
+    // Actualiza cada logro según su tipo y el umbral
     const updatedLogros = req.user.logros.map((logro) => {
       const threshold = Number(logro.key);
-      let obtenido = logro.obtenido; // Se conserva el valor actual
+      let obtenido = logro.obtenido; // Conserva el estado actual
       if (logro.type === "time" && tiempoEntrenado >= threshold) {
         obtenido = true;
       } else if (logro.type === "plus" && entrenamientosCompletos >= threshold) {
@@ -195,10 +199,11 @@ export const updateLogros = async (req: Request, res: Response): Promise<void> =
       return { ...logro, obtenido };
     });
 
-    // Itera de forma secuencial sobre los logros actualizados para crear notificaciones
+    console.log("Logros actualizados:", updatedLogros);
+
+    // Procesa cada logro secuencialmente para crear notificaciones
     for (const [index, newLogro] of updatedLogros.entries()) {
       const prevLogro = previousLogros[index];
-      // Si el logro pasó de no obtenido a obtenido, crea la notificación
       if (!prevLogro.obtenido && newLogro.obtenido) {
         const notification = new Notification({
           user: req.user._id,
@@ -206,13 +211,20 @@ export const updateLogros = async (req: Request, res: Response): Promise<void> =
           content: newLogro.content,
           type: newLogro.type,
         });
-        await notification.save();
+        try {
+          await notification.save();
+          console.log(`Notificación guardada para logro: ${newLogro.title}`);
+        } catch (notifError) {
+          console.error(`Error al guardar la notificación para el logro ${newLogro.title}:`, notifError);
+          throw notifError;
+        }
       }
     }
 
-    // Actualiza los logros del usuario y guarda en la base de datos
+    // Actualiza los logros del usuario y guarda en la BD
     req.user.logros = updatedLogros;
     await req.user.save();
+    console.log("Usuario actualizado con nuevos logros:", req.user.logros);
 
     res.status(200).json({ logros: req.user.logros });
     return;
