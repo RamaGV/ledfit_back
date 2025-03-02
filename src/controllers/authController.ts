@@ -132,34 +132,6 @@ export const removeFav = async (req: AuthenticatedRequest, res: Response): Promi
   }
 };
 
-// Función para actualizar las calorías quemadas del usuario autenticado
-export const updateCaloriasQuemadas = async (req: Request, res: Response): Promise<void> => {
-  try {
-    // Se asume que el middleware protect coloca al usuario en req.user
-    if (!req.user) {
-      res.status(401).json({ message: "No autorizado" });
-      return;
-    }
-    const { calorias } = req.body; // Se espera enviar las calorías quemadas en esta sesión
-    if (typeof calorias !== "number") {
-      res.status(400).json({ message: "El valor de calorías es inválido" });
-      return;
-    }
-    
-    // Actualiza sumando las calorías a las que ya lleva el usuario
-    req.user.caloriasQuemadas += calorias;
-    await req.user.save();
-    res.status(200).json({ 
-      message: "Calorías actualizadas correctamente",
-      caloriasQuemadas: req.user.caloriasQuemadas
-    });
-    return;
-  } catch (error) {
-    res.status(500).json({ message: "Error al actualizar calorías", error });
-    return;
-  }
-};
-
 // Función para actualizar los logros del usuario y crear notificaciones
 export const updateUserLogros = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -221,53 +193,49 @@ export const updateUserLogros = async (req: Request, res: Response): Promise<voi
   }
 };
 
-// Endpoint para actualizar el tiempo entrenado
-export const updateTiempoEntrenado = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Endpoint para actualizar las métricas de la sesión
+export const updateMetricas = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ message: "No autorizado" });
       return;
     }
-    const { tiempo } = req.body; // tiempo en segundos
-    if (typeof tiempo !== "number") {
+
+    const { tiempo, calorias, entrenamientoCompletado } = req.body;
+
+    // Validación de los valores, si se proporcionan
+    if (tiempo !== undefined && typeof tiempo !== "number") {
       res.status(400).json({ message: "El valor de tiempo es inválido" });
       return;
     }
-    // Sumar el tiempo entrenado
-    req.user.tiempoEntrenado += tiempo;
-    await req.user.save();
-    res.status(200).json({
-      message: "Tiempo entrenado actualizado correctamente",
-      tiempoEntrenado: req.user.tiempoEntrenado,
-    });
-    return;
-  } catch (error) {
-    res.status(500).json({ message: "Error al actualizar tiempo entrenado", error });
-    return;
-  }
-};
-
-// Endpoint para actualizar la cantidad de entrenamientos completados
-export const updateEntrenamientosCompletos = async (
-  req: AuthenticatedRequest,
-  res: Response
-): Promise<void> => {
-  try {
-    if (!req.user) {
-      res.status(401).json({ message: "No autorizado" });
+    if (calorias !== undefined && typeof calorias !== "number") {
+      res.status(400).json({ message: "El valor de calorías es inválido" });
       return;
     }
-    // Incrementa en 1 el contador de entrenamientos completados
-    req.user.entrenamientosCompletos += 1;
+
+    // Actualiza el tiempo entrenado
+    if (tiempo) {
+      req.user.tiempoEntrenado += tiempo;
+    }
+    // Actualiza las calorías quemadas
+    if (calorias) {
+      req.user.caloriasQuemadas += calorias;
+    }
+    // Actualiza el número de entrenamientos completados
+    if (entrenamientoCompletado) {
+      req.user.entrenamientosCompletos += 1;
+    }
+
+    // Guarda los cambios en la base de datos
     await req.user.save();
+
     res.status(200).json({
-      message: "Entrenamientos completados actualizados correctamente",
+      message: "Métricas actualizadas correctamente",
+      tiempoEntrenado: req.user.tiempoEntrenado,
+      caloriasQuemadas: req.user.caloriasQuemadas,
       entrenamientosCompletos: req.user.entrenamientosCompletos,
     });
-    return;
   } catch (error) {
-    res.status(500).json({ message: "Error al actualizar entrenamientos completados", error });
-    return;
+    res.status(500).json({ message: "Error al actualizar métricas", error });
   }
 };
-
