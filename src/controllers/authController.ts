@@ -62,7 +62,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const token = generateToken(user._id as mongoose.Types.ObjectId);
-    res.status(200).json({ token, user: { id: user._id, name: user.name, email, favs: user.favs } });
+
+    res.status(200).json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        favs: user.favs,
+        logros: user.logros, // Agregado
+        caloriasQuemadas: user.caloriasQuemadas,
+        tiempoEntrenado: user.tiempoEntrenado,
+        entrenamientosCompletos: user.entrenamientosCompletos,
+      },
+    });  
   } catch (error) {
     res.status(500).json({ message: "Error al iniciar sesión" });
   }
@@ -79,7 +92,11 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response): 
     id: req.user._id,
     name: req.user.name,
     email: req.user.email,
-    favs: req.user.favs || []
+    favs: req.user.favs || [],
+    logros: req.user.logros, // Incluye los logros
+    caloriasQuemadas: req.user.caloriasQuemadas,
+    tiempoEntrenado: req.user.tiempoEntrenado,
+    entrenamientosCompletos: req.user.entrenamientosCompletos
   });
 };
 
