@@ -410,3 +410,104 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response): 
     res.status(500).json({ message: "Error al actualizar la contraseña" });
   }
 };
+
+// Autenticación con Clerk
+export const clerkUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { clerkId, email, name, provider, platform } = req.body;
+    
+    // Log para depuración
+    console.log("Datos recibidos en clerk-user:", {
+      clerkId,
+      email,
+      name,
+      provider,
+      platform,
+      headers: {
+        auth: req.headers.authorization ? 'Presente' : 'No presente',
+        contentType: req.headers['content-type']
+      }
+    });
+
+    if (!clerkId) {
+      res.status(400).json({ message: "Se requiere clerkId" });
+      return;
+    }
+
+    // Buscamos si el usuario ya existe por clerkId
+    let user = await User.findOne({ clerkId });
+    
+    // Si no existe, lo creamos
+    if (!user) {
+      console.log("Usuario con clerkId no encontrado, creando uno nuevo");
+      
+      // Verificamos si existe por email
+      if (email) {
+        const userByEmail = await User.findOne({ email });
+        if (userByEmail) {
+          // Actualizamos el usuario existente con el clerkId
+          console.log("Usuario encontrado por email, actualizando con clerkId");
+          userByEmail.clerkId = clerkId;
+          userByEmail.provider = provider || 'clerk';
+          await userByEmail.save();
+          user = userByEmail;
+        }
+      }
+      
+      // Si sigue sin existir, creamos uno nuevo
+      if (!user) {
+        // Generamos una contraseña aleatoria para el usuario
+        const randomPassword = Math.random().toString(36).slice(-10);
+        
+        user = await User.create({
+          name: name || 'Usuario Clerk',
+          email: email || `${clerkId}@clerk.user`,
+          password: randomPassword,
+          clerkId,
+          provider: provider || 'clerk',
+          platform: platform || 'unknown',
+          // Inicializamos con valores por defecto
+          favs: [],
+          logros: {
+            principiante: { completado: false, progreso: 0 },
+            intermedio: { completado: false, progreso: 0 },
+            avanzado: { completado: false, progreso: 0 },
+            master: { completado: false, progreso: 0 },
+            madrugador: { completado: false, progreso: 0 },
+            noctambulo: { completado: false, progreso: 0 },
+            dedicado: { completado: false, progreso: 0 },
+            constante: { completado: false, progreso: 0 }
+          },
+          caloriasQuemadas: 0,
+          tiempoEntrenado: 0,
+          entrenamientosCompletos: 0
+        });
+        
+        console.log("Nuevo usuario creado con clerkId");
+      }
+    } else {
+      console.log("Usuario con clerkId encontrado:", user._id);
+    }
+
+    // Generamos un token JWT para nuestra aplicación
+    const token = generateToken(user._id as mongoose.Types.ObjectId);
+
+    // Devolvemos el usuario y el token
+    res.status(200).json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        favs: user.favs,
+        logros: user.logros,
+        caloriasQuemadas: user.caloriasQuemadas,
+        tiempoEntrenado: user.tiempoEntrenado,
+        entrenamientosCompletos: user.entrenamientosCompletos,
+      },
+    });
+  } catch (error) {
+    console.error("Error en clerk-user:", error);
+    res.status(500).json({ message: "Error al procesar la autenticación con Clerk" });
+  }
+};
