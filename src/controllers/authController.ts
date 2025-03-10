@@ -92,8 +92,8 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response): 
     id: req.user._id,
     name: req.user.name,
     email: req.user.email,
-    favs: req.user.favs || [],
-    logros: req.user.logros, // Incluye los logros
+    favs: req.user.favs,
+    logros: req.user.logros,
     caloriasQuemadas: req.user.caloriasQuemadas,
     tiempoEntrenado: req.user.tiempoEntrenado,
     entrenamientosCompletos: req.user.entrenamientosCompletos
@@ -250,5 +250,98 @@ export const updateLogros = async (
     console.error("Error en updateUserLogros:", error);
     res.status(500).json({ message: "Error al actualizar logros", error: error.message });
     return;
+  }
+};
+
+// Actualizar perfil de usuario
+export const updateProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "No autorizado" });
+      return;
+    }
+
+    const { name, email, profileImage } = req.body;
+    const userId = req.user._id;
+
+    // Validar datos
+    if (email) {
+      const emailExists = await User.findOne({ email, _id: { $ne: userId } });
+      if (emailExists) {
+        res.status(400).json({ message: "Este email ya está en uso por otro usuario" });
+        return;
+      }
+    }
+
+    // Construir objeto de actualización
+    const updateData: { name?: string; email?: string } = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    
+    // Nota: La actualización de la imagen de perfil requeriría implementar
+    // almacenamiento de archivos o manejo de URLs, se podría agregar después
+
+    // Actualizar usuario
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      res.status(404).json({ message: "Usuario no encontrado" });
+      return;
+    }
+
+    // Responder con los datos actualizados
+    res.status(200).json({
+      name: updatedUser.name,
+      email: updatedUser.email,
+      message: "Perfil actualizado correctamente"
+    });
+  } catch (error) {
+    console.error("Error al actualizar perfil:", error);
+    res.status(500).json({ message: "Error al actualizar el perfil" });
+  }
+};
+
+// Actualizar contraseña de usuario
+export const updatePassword = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "No autorizado" });
+      return;
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user._id;
+
+    // Validar datos
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ message: "Se requiere la contraseña actual y la nueva" });
+      return;
+    }
+
+    // Verificar contraseña actual
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ message: "Usuario no encontrado" });
+      return;
+    }
+
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      res.status(400).json({ message: "Contraseña actual incorrecta" });
+      return;
+    }
+
+    // Actualizar contraseña
+    user.password = newPassword;
+    await user.save(); // Aquí se ejecutará el pre-save hook para hashear la contraseña
+
+    res.status(200).json({ message: "Contraseña actualizada correctamente" });
+  } catch (error) {
+    console.error("Error al actualizar contraseña:", error);
+    res.status(500).json({ message: "Error al actualizar la contraseña" });
   }
 };
