@@ -17,6 +17,6 @@ def get_all_files_text(base_dir, output_file):
 
 # Configuración
 base_dir = "/home/rama/Escritorio/Ledfit/ledfit_back/src"  # Cambia esto a la ruta de tu directorio "src"
-output_file = "backend_consolidado.txt"  # Nombre del archivo de salida
+output_file = "/home/rama/Escritorio/Ledfit/ledfit_back/backend_to_txt.py"  # Nombre del archivo de salida
 
 get_all_files_text(base_dir, output_file)

@@ -8,7 +8,9 @@ import {
   addFav, 
   removeFav, 
   updateMetricas,
-  updateLogros
+  updateLogros,
+  updateProfile,
+  updatePassword
 } from "../controllers/authController";
 import { protect } from "../middlewares/authMiddleware";
 
@@ -28,5 +30,9 @@ router.patch("/update-metricas", protect, updateMetricas);
 
 // Nueva ruta para actualizar los logros del usuario:
 router.patch("/update-logros", protect, updateLogros);
+
+// Nuevas rutas para actualizar perfil y contraseña:
+router.patch("/update-profile", protect, updateProfile);
+router.patch("/update-password", protect, updatePassword);
 
 export default router;
