@@ -5,6 +5,7 @@ import {
   getNotifications,
   markNotificationAsRead,
   createNotification,
+  deleteNotification
 } from "../controllers/notificationController";
 import { protect } from "../middlewares/authMiddleware";
 
@@ -15,6 +16,9 @@ router.get("/", protect, getNotifications);
 
 // Marcar una notificación como leída
 router.patch("/:notificationId/read", protect, markNotificationAsRead);
+
+// Eliminar una notificación (marcarla como eliminada)
+router.delete("/:notificationId", protect, deleteNotification);
 
 // Crear una nueva notificación
 router.post("/", protect, createNotification);

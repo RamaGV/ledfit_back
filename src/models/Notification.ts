@@ -9,6 +9,7 @@ export interface INotification extends Document {
   type: "check" | "plus" | "time";
   date: Date;
   read: boolean;
+  deleted: boolean;
 }
 
 const notificationSchema: Schema<INotification> = new mongoose.Schema(
@@ -19,6 +20,7 @@ const notificationSchema: Schema<INotification> = new mongoose.Schema(
     type: { type: String, enum: ["check", "plus", "time"], default: "check" },
     date: { type: Date, default: Date.now },
     read: { type: Boolean, default: false },
+    deleted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

@@ -13,7 +13,11 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
       res.status(400).json({ message: "No se encontró el usuario autenticado" });
       return;
     }
-    const notifications = await Notification.find({ user: userId }).sort({ date: -1 });
+    // Modificado para excluir notificaciones marcadas como eliminadas
+    const notifications = await Notification.find({ 
+      user: userId,
+      deleted: { $ne: true } // Excluir notificaciones eliminadas
+    }).sort({ date: -1 });
     res.json({ notifications });
     return;
   } catch (error) {
@@ -33,10 +37,40 @@ export const markNotificationAsRead = async (req: Request, res: Response): Promi
     }
     notification.read = true;
     await notification.save();
-    res.json({ message: "Notificación marcada como leída" });
+    res.json({ message: "Notificación marcada como leída" });
     return;
   } catch (error) {
-    res.status(500).json({ message: "Error al marcar notificación como leída", error });
+    res.status(500).json({ message: "Error al marcar notificación como leída", error });
+    return;
+  }
+};
+
+// Marca una notificación como eliminada
+export const deleteNotification = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { notificationId } = req.params;
+    const notification = await Notification.findById(notificationId);
+    
+    if (!notification) {
+      res.status(404).json({ message: "Notificación no encontrada" });
+      return;
+    }
+    
+    // Verificar que la notificación pertenece al usuario autenticado
+    const userId = req.user?._id;
+    if (!userId || notification.user.toString() !== userId.toString()) {
+      res.status(403).json({ message: "No tienes permiso para eliminar esta notificación" });
+      return;
+    }
+    
+    // Marcar como eliminada en lugar de eliminar físicamente
+    notification.deleted = true;
+    await notification.save();
+    
+    res.json({ message: "Notificación eliminada correctamente" });
+    return;
+  } catch (error) {
+    res.status(500).json({ message: "Error al eliminar la notificación", error });
     return;
   }
 };
