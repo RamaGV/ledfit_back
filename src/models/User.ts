@@ -20,6 +20,8 @@ export interface IUser extends Document {
   caloriasQuemadas: number;
   tiempoEntrenado: number;
   entrenamientosCompletos: number;
+  oauthProvider?: string; // 'google', 'facebook', 'apple'
+  oauthId?: string;       // ID único del proveedor
   matchPassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -43,7 +45,9 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
     favs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Entrenamiento" }],
     caloriasQuemadas: { type: Number, default: 0 },
     tiempoEntrenado: { type: Number, default: 0 },
-    entrenamientosCompletos: { type: Number, default: 0 }
+    entrenamientosCompletos: { type: Number, default: 0 },
+    oauthProvider: { type: String, enum: ['google', 'facebook', 'apple'], required: false },
+    oauthId: { type: String, required: false }
   },
   { timestamps: true }
 );
