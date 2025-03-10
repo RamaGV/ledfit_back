@@ -10,7 +10,8 @@ import {
   updateMetricas,
   updateLogros,
   updateProfile,
-  updatePassword
+  updatePassword,
+  oauthSignIn
 } from "../controllers/authController";
 import { protect } from "../middlewares/authMiddleware";
 
@@ -18,6 +19,7 @@ const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
+router.post("/oauth", oauthSignIn);
 router.get("/profile", protect, getUserProfile);
 
 // Rutas para favoritos:

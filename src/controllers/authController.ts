@@ -81,6 +81,71 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// Registro o login con proveedor OAuth (Google, Facebook, Apple)
+export const oauthSignIn = async (req: Request, res: Response): Promise<void> => {
+  const { name, email, oauthProvider, oauthId } = req.body;
+  
+  try {
+    // Verificar si el usuario ya existe por email o por oauthId
+    let user = await User.findOne({ 
+      $or: [
+        { email },
+        { oauthId, oauthProvider } // Asumiendo que estos campos existen en tu modelo
+      ]
+    });
+    
+    // Si no existe, lo creamos
+    if (!user) {
+      // Generamos una contraseña aleatoria, ya que el usuario usará siempre OAuth
+      const randomPassword = Math.random().toString(36).slice(-10);
+      
+      user = await User.create({
+        name,
+        email,
+        password: randomPassword,
+        oauthProvider,
+        oauthId,
+        // Inicializar los valores por defecto
+        logros: [],
+        caloriasQuemadas: 0,
+        tiempoEntrenado: 0,
+        entrenamientosCompletos: 0,
+        favs: []
+      });
+      
+      console.log(`Usuario creado desde ${oauthProvider}:`, user.name);
+    } else {
+      // Actualizar los datos del proveedor OAuth si no están presentes
+      if (!user.oauthId || !user.oauthProvider) {
+        user.oauthId = oauthId;
+        user.oauthProvider = oauthProvider;
+        await user.save();
+      }
+    }
+    
+    // Generar token
+    const token = generateToken(user._id as mongoose.Types.ObjectId);
+    
+    // Responder con token y datos del usuario
+    res.status(200).json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        favs: user.favs,
+        logros: user.logros,
+        caloriasQuemadas: user.caloriasQuemadas,
+        tiempoEntrenado: user.tiempoEntrenado,
+        entrenamientosCompletos: user.entrenamientosCompletos,
+      },
+    });
+  } catch (error) {
+    console.error('Error en oauthSignIn:', error);
+    res.status(500).json({ message: "Error al procesar autenticación OAuth" });
+  }
+};
+
 // Obtener perfil del usuario autenticado
 export const getUserProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   if (!req.user) {
