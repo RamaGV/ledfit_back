@@ -11,7 +11,8 @@ import {
   updateLogros,
   updateProfile,
   updatePassword,
-  oauthSignIn
+  oauthSignIn,
+  clerkUser
 } from "../controllers/authController";
 import { protect } from "../middlewares/authMiddleware";
 
@@ -20,6 +21,7 @@ const router = express.Router();
 router.post("/register", register);
 router.post("/login", login);
 router.post("/oauth", oauthSignIn);
+router.post("/clerk-user", clerkUser);
 router.get("/profile", protect, getUserProfile);
 
 // Rutas para favoritos:
