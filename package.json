@@ -6,7 +6,12 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "nodemon src/server.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "convert-images": "ts-node src/utils/imageConverter.ts",
+    "convert-images:delete": "ts-node -e \"require('./src/utils/imageConverter').convertPngToWebp({deleteOriginals: true})\"",
+    "update-image-urls": "ts-node src/utils/updateImageUrls.ts",
+    "convert-and-update": "npm run convert-images && npm run update-image-urls",
+    "convert-delete-and-update": "npm run convert-images:delete && npm run update-image-urls"
   },
   "keywords": [],
   "author": "",
@@ -19,8 +24,11 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-async-handler": "^1.2.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.4",
+    "mqtt": "^5.8.0",
+    "sharp": "^0.32.6",
     "typescript": "^5.7.3"
   },
   "devDependencies": {

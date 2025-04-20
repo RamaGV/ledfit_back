@@ -9,6 +9,11 @@ import entenamientosRoutes from "./routes/entrenamientosRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
 import actuadoresRoutes from "./routes/ejerciciosRoutes";
 import authRoutes from "./routes/authRoutes";
+import workoutRoutes from "./routes/workoutRoutes";
+import boardRoutes from "./routes/boardRoutes";
+
+// Initialize MQTT client (ensure this runs early, maybe after dotenv.config())
+import './utils/mqttClient'; // Import to initialize connection
 
 dotenv.config();
 connectDB();
@@ -23,6 +28,8 @@ app.use("/api/entrenamientos", entenamientosRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/ejercicios", actuadoresRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/workout", workoutRoutes);
+app.use("/api/boards", boardRoutes);
 
 // Middleware 404
 app.use((req, res) => {

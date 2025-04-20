@@ -2,9 +2,15 @@
 
 import { Request, Response } from "express";
 import Notification from "../models/Notification";
+import { IUser } from "../models/User";
+
+// Interfaz local para claridad (opcional pero recomendado)
+interface AuthenticatedRequest extends Request {
+  user?: IUser;
+}
 
 // Obtiene las notificaciones del usuario autenticado a partir del token
-export const getNotifications = async (req: Request, res: Response): Promise<void> => {
+export const getNotifications = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     // Se usa siempre el id obtenido del middleware protect
     const userId = req.user?._id;
@@ -27,7 +33,7 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
 };
 
 // Marca una notificación como leída
-export const markNotificationAsRead = async (req: Request, res: Response): Promise<void> => {
+export const markNotificationAsRead = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { notificationId } = req.params;
     const notification = await Notification.findById(notificationId);
@@ -46,7 +52,7 @@ export const markNotificationAsRead = async (req: Request, res: Response): Promi
 };
 
 // Marca una notificación como eliminada
-export const deleteNotification = async (req: Request, res: Response): Promise<void> => {
+export const deleteNotification = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { notificationId } = req.params;
     const notification = await Notification.findById(notificationId);
@@ -76,7 +82,7 @@ export const deleteNotification = async (req: Request, res: Response): Promise<v
 };
 
 // Crea una notificación para el usuario autenticado (no se envía el id en el body)
-export const createNotification = async (req: Request, res: Response): Promise<void> => {
+export const createNotification = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { title, message } = req.body; // Se espera title y message en el body
     const userId = req.user?._id; // Se extrae el id del usuario del token

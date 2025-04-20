@@ -22,6 +22,8 @@ export interface IUser extends Document {
   entrenamientosCompletos: number;
   oauthProvider?: string; // 'google', 'facebook', 'apple'
   oauthId?: string;       // ID único del proveedor
+  boardId?: string;
+  isPaused?: boolean;
   matchPassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -47,7 +49,9 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
     tiempoEntrenado: { type: Number, default: 0 },
     entrenamientosCompletos: { type: Number, default: 0 },
     oauthProvider: { type: String, enum: ['google', 'facebook', 'apple'], required: false },
-    oauthId: { type: String, required: false }
+    oauthId: { type: String, required: false },
+    boardId: { type: String, required: false, unique: true, sparse: true },
+    isPaused: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

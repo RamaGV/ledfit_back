@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import Notification from "../models/Notification";
-import User, { IUser } from "../models/User";
+import User, { IUser, ILogro } from "../models/User";
 
 // Extiende la interfaz de Request para incluir `user`
 interface AuthenticatedRequest extends Request {
@@ -250,7 +250,7 @@ export const updateMetricas = async (req: AuthenticatedRequest, res: Response): 
 
 // Función para actualizar los logros del usuario y crear notificaciones
 export const updateLogros = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ): Promise<void> => {
   try {
@@ -259,62 +259,60 @@ export const updateLogros = async (
       return;
     }
 
-    // Registra el estado actual de los logros del usuario
+    const { tiempoEntrenado, caloriasQuemadas, entrenamientosCompletos } = req.user;
     console.log("Logros actuales:", req.user.logros);
 
-    const { tiempoEntrenado, caloriasQuemadas, entrenamientosCompletos } = req.user;
+    // Hacer una copia profunda para comparación
+    const previousLogros = req.user.logros.map((logro: ILogro) => ({ ...logro }));
 
-    // Guarda una copia de los logros antes de actualizarlos
-    const previousLogros = req.user.logros.map((logro) => ({ ...logro }));
+    // Actualiza el progreso o marca como completado según las métricas
+    const updatedLogros = req.user.logros.map((logro: ILogro) => {
+      if (logro.obtenido) return logro; // Si ya está obtenido, no hacer nada
 
-    // Actualiza cada logro según su tipo y el umbral
-    const updatedLogros = req.user.logros.map((logro) => {
-      const threshold = Number(logro.key);
-      let obtenido = logro.obtenido; // Conserva el estado actual
-      if (logro.type === "time" && tiempoEntrenado >= threshold) {
-        obtenido = true;
-      } else if (logro.type === "plus" && entrenamientosCompletos >= threshold) {
-        obtenido = true;
-      } else if (logro.type === "check" && caloriasQuemadas >= threshold) {
-        obtenido = true;
+      let completado = false;
+      switch (logro.type) {
+        case "time":
+          completado = tiempoEntrenado >= parseInt(logro.key, 10);
+          break;
+        case "check":
+          completado = caloriasQuemadas >= parseInt(logro.key, 10);
+          break;
+        case "plus":
+          completado = entrenamientosCompletos >= parseInt(logro.key, 10);
+          break;
       }
-      return { ...logro, obtenido };
+
+      if (completado) {
+        return { ...logro, obtenido: true };
+      }
+      return logro;
     });
 
-    console.log("Logros actualizados:", updatedLogros);
+    // Crear notificaciones para logros nuevos
+    const nuevosLogros = updatedLogros.filter((logro, index) => logro.obtenido && !previousLogros[index].obtenido);
 
-    // Procesa cada logro secuencialmente para crear notificaciones
-    for (const [index, newLogro] of updatedLogros.entries()) {
-      const prevLogro = previousLogros[index];
-      if (!prevLogro.obtenido && newLogro.obtenido) {
-        const notification = new Notification({
-          user: req.user._id,
-          title: newLogro.title || "Logro alcanzado",
-          // Asigna un valor por defecto si newLogro.content es undefined
-          content: newLogro.content || "¡Has alcanzado un nuevo logro!",
-          type: newLogro.type,
-        });
-        try {
-          await notification.save();
-          console.log(`Notificación guardada para logro: ${newLogro.title}`);
-        } catch (notifError) {
-          console.error(`Error al guardar la notificación para el logro ${newLogro.title}:`, notifError);
-          throw notifError;
-        }
-      }
+    if (nuevosLogros.length > 0) {
+        const notifications = nuevosLogros.map(logro => ({
+            user: req.user!._id,
+            title: `¡Nuevo Logro Desbloqueado!`,
+            content: `Has conseguido: ${logro.title} - ${logro.content}`,
+            type: 'logro', // Asumiendo que tienes un tipo 'logro'
+            read: false,
+            deleted: false,
+            date: new Date()
+        }));
+        await Notification.insertMany(notifications);
+        console.log(`${nuevosLogros.length} notificaciones de logro creadas.`);
     }
 
-    // Actualiza los logros del usuario y guarda en la BD
     req.user.logros = updatedLogros;
     await req.user.save();
     console.log("Usuario actualizado con nuevos logros:", req.user.logros);
 
     res.status(200).json({ logros: req.user.logros });
-    return;
-  } catch (error: any) {
-    console.error("Error en updateUserLogros:", error);
-    res.status(500).json({ message: "Error al actualizar logros", error: error.message });
-    return;
+  } catch (error) {
+    console.error("Error al actualizar logros:", error);
+    res.status(500).json({ message: "Error al actualizar logros", error });
   }
 };
 
@@ -434,59 +432,48 @@ export const clerkUser = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Buscamos si el usuario ya existe por clerkId
-    let user = await User.findOne({ clerkId });
-    
-    // Si no existe, lo creamos
+    // Buscamos si el usuario ya existe por oauthId (que es donde guardamos clerkId)
+    let user = await User.findOne({ oauthId: clerkId });
+
+    // Si no existe, lo creamos o actualizamos si existe por email
     if (!user) {
-      console.log("Usuario con clerkId no encontrado, creando uno nuevo");
-      
+      console.log("Usuario con clerkId no encontrado, creando o actualizando...");
+
       // Verificamos si existe por email
       if (email) {
         const userByEmail = await User.findOne({ email });
         if (userByEmail) {
-          // Actualizamos el usuario existente con el clerkId
-          console.log("Usuario encontrado por email, actualizando con clerkId");
-          userByEmail.clerkId = clerkId;
-          userByEmail.provider = provider || 'clerk';
+          // Actualizamos el usuario existente con el oauthId y oauthProvider
+          console.log("Usuario encontrado por email, actualizando con datos OAuth");
+          userByEmail.oauthId = clerkId; // <--- Usar nombre de campo correcto
+          userByEmail.oauthProvider = provider || 'clerk'; // <--- Usar nombre de campo correcto
           await userByEmail.save();
           user = userByEmail;
         }
       }
-      
+
       // Si sigue sin existir, creamos uno nuevo
       if (!user) {
-        // Generamos una contraseña aleatoria para el usuario
         const randomPassword = Math.random().toString(36).slice(-10);
-        
+
         user = await User.create({
           name: name || 'Usuario Clerk',
           email: email || `${clerkId}@clerk.user`,
           password: randomPassword,
-          clerkId,
-          provider: provider || 'clerk',
+          oauthId: clerkId, // <--- Usar nombre de campo correcto
+          oauthProvider: provider || 'clerk', // <--- Usar nombre de campo correcto
           platform: platform || 'unknown',
-          // Inicializamos con valores por defecto
+          // Inicializamos con valores por defecto (asegúrate que coincidan con tu modelo)
           favs: [],
-          logros: {
-            principiante: { completado: false, progreso: 0 },
-            intermedio: { completado: false, progreso: 0 },
-            avanzado: { completado: false, progreso: 0 },
-            master: { completado: false, progreso: 0 },
-            madrugador: { completado: false, progreso: 0 },
-            noctambulo: { completado: false, progreso: 0 },
-            dedicado: { completado: false, progreso: 0 },
-            constante: { completado: false, progreso: 0 }
-          },
+          logros: [], // O la estructura inicial definida en tu modelo si es diferente
           caloriasQuemadas: 0,
           tiempoEntrenado: 0,
           entrenamientosCompletos: 0
         });
-        
-        console.log("Nuevo usuario creado con clerkId");
+        console.log("Nuevo usuario creado con datos OAuth");
       }
     } else {
-      console.log("Usuario con clerkId encontrado:", user._id);
+      console.log("Usuario con oauthId (clerkId) encontrado:", user._id);
     }
 
     // Generamos un token JWT para nuestra aplicación

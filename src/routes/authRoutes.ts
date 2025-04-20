@@ -12,7 +12,7 @@ import {
   updateProfile,
   updatePassword,
   oauthSignIn,
-  clerkUser
+  clerkUser,
 } from "../controllers/authController";
 import { protect } from "../middlewares/authMiddleware";
 

@@ -7,6 +7,7 @@ import Entrenamiento from "../models/Entrenamiento";
 export const getAllEntrenamientos = async (req: Request, res: Response) => {
   try {
     const entrenamientos = await Entrenamiento.find({}).populate("ejercicios.ejercicioId");
+    console.log("[Backend Log] Entrenamientos fetched:", JSON.stringify(entrenamientos, null, 2));
     res.json(entrenamientos);
   } catch (error) {
     console.error("Error getAllEntrenamientos:", error);
@@ -23,9 +24,10 @@ export const getEntrenamientoById = async (req: Request, res: Response) => {
     if (!entrenamiento) {
       return res.status(404).json({ message: "Entrenamiento no encontrado" });
     }
-
+    console.log("[Backend Log] Entrenamiento by ID fetched:", JSON.stringify(entrenamiento, null, 2));
     return res.json(entrenamiento);
   } catch (error) {
+    console.error("Error getEntrenamientoById:", error);
     return res.status(500).json({ message: "Error al obtener el entrenamiento", error });
   }
 };
