@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
+import { getS3BaseUrl } from './s3Service';
 
 interface ConversionStats {
   totalFiles: number;
@@ -220,8 +221,17 @@ if (require.main === module) {
           console.log(`Ahorro: ${result.savingPercent}%`);
           console.log('==========================================');
           console.log('\n✅ Conversión completada exitosamente');
+          
+          // Usar el servicio S3 para obtener la URL base
+          const s3BaseUrl = getS3BaseUrl();
+          const fileName = path.basename(result.webpPath || '');
           console.log('Recuerda subir el archivo WebP a tu bucket de S3 en la ruta:');
-          console.log('s3://ledfit/images/ejercicios/placeholder_workout.webp');
+          
+          if (s3BaseUrl) {
+            console.log(`${s3BaseUrl}/images/ejercicios/${fileName}`);
+          } else {
+            console.log(`s3://${process.env.S3_BUCKET_NAME || 'ledfit'}/images/ejercicios/${fileName}`);
+          }
         } else {
           console.error(`\n❌ Error: ${result.error}`);
         }
